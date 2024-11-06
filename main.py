@@ -1,14 +1,9 @@
-import os
 # import random
 import asyncio
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
-from dotenv import load_dotenv
-import logging
 from handlers.start import start_router
 from handlers.myinfo import myinfo_router
 from handlers.random import random_router
-from handlers.dotenv import dp, bot
+from config import dp, bot
 
 
 
