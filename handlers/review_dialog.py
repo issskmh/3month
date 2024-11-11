@@ -1,8 +1,7 @@
-from aiogram import types
-from aiogram import Router
+from aiogram import types, Router, F
 from aiogram.fsm.context import FSMContext
+from aiogram.types import CallbackQuery
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.filters import Command
 
 review_router = Router()
 
@@ -15,60 +14,65 @@ class RestourantReview(StatesGroup):
     extra_comments = State()
     finish = State()
 
-@review_router.message(Command("review"))
-async def start_review(message: types.Message, state: FSMContext):
-    user_id = message.from_user.id
-    user_data = await state.get_data()
-
-    if user_data.get("review_given", False):
-        await state.clear()
-        await message.answer("Нельзя оставлять отзыв более одного раза.")
-        return
-
+@review_router.callback_query(F.data == "review")
+async def start_review(callback_query: CallbackQuery, state: FSMContext):
     await state.set_state(RestourantReview.name)
-    await message.answer("Как вас зовут?")
+    await callback_query.message.answer("Как вас зовут?")
 
 @review_router.message(RestourantReview.name)
-async def user_contact(message: types.Message, state: FSMContext):
+async def process_name(message: types.Message, state: FSMContext):
     await state.update_data(name=message.text)
     await state.set_state(RestourantReview.user_contact)
-    await message.answer("Введите ваш номер или инстаграм:")
+    await message.answer("Введите ваш номер телефона или инстаграм:")
 
 @review_router.message(RestourantReview.user_contact)
-async def date_visit(message: types.Message, state: FSMContext):
+async def process_user_contact(message: types.Message, state: FSMContext):
     await state.update_data(user_contact=message.text)
     await state.set_state(RestourantReview.date_visit)
-    await message.answer("Введите дату вашего визита нашего заведения:")
+    await message.answer("Введите дату вашего визита (например, 2024-11-11):")
 
 @review_router.message(RestourantReview.date_visit)
-async def food_rating(message: types.Message, state: FSMContext):
-    if message.text.isdigit() and 1 <= int(message.text) <= 5:
-        await state.update_data(date_visit=message.text)
-        await state.set_state(RestourantReview.food_rating)
-        await message.answer("Введите оценку еды где 1 - очень плохо, 5 - замечательно")
-    else:
-        await message.answer("Пожалуйста, введите число от 1 до 5 для оценки еды.")
+async def process_date_visit(message: types.Message, state: FSMContext):
+    await state.update_data(date_visit=message.text)
+    await state.set_state(RestourantReview.food_rating)
+    await message.answer("Введите оценку еды (1 - очень плохо, 5 - замечательно):")
 
 @review_router.message(RestourantReview.food_rating)
-async def cleanliness_rating(message: types.Message, state: FSMContext):
+async def process_food_rating(message: types.Message, state: FSMContext):
     if message.text.isdigit() and 1 <= int(message.text) <= 5:
-        await state.update_data(food_rating=message.text)
+        await state.update_data(food_rating=int(message.text))
         await state.set_state(RestourantReview.cleanliness_rating)
-        await message.answer("Введите оценку чистоты заведения где 1 - очень плохо, 5 - замечательно")
+        await message.answer("Введите оценку чистоты (1 - очень плохо, 5 - замечательно):")
     else:
         await message.answer("Пожалуйста, введите число от 1 до 5 для оценки еды.")
 
+
 @review_router.message(RestourantReview.cleanliness_rating)
-async def extra_comments(message: types.Message, state: FSMContext):
+async def process_cleanliness_rating(message: types.Message, state: FSMContext):
     if message.text.isdigit() and 1 <= int(message.text) <= 5:
-        await state.update_data(cleanliness_rating=message.text)
+        await state.update_data(cleanliness_rating=int(message.text))
         await state.set_state(RestourantReview.extra_comments)
-        await message.answer("Дополнительные комментарии/жалоба")
+        await message.answer("Пожалуйста, добавьте дополнительные комментарии или жалобы, если они есть:")
     else:
-        await message.answer("Пожалуйста, введите число от 1 до 5 для оценки чистоты.")
+        await message.answer("Оценка чистоты должна быть числом от 1 до 5. Пожалуйста, попробуйте снова.")
+
 
 @review_router.message(RestourantReview.extra_comments)
-async def finish(message: types.Message, state: FSMContext):
-    await state.update_data(extra_comments=message.text, review_given=True)
-    await message.answer("Спасибо, ваш отзыв был успешно принят!")
+async def process_extra_comments(message: types.Message, state: FSMContext):
+    await state.update_data(extra_comments=message.text)
+    await state.set_state(RestourantReview.finish)
+
+
+    user_data = await state.get_data()
+    review_text = (
+        f"Спасибо за ваш отзыв!\n\n"
+        f"Имя: {user_data['name']}\n"
+        f"Контакт: {user_data['user_contact']}\n"
+        f"Дата визита: {user_data['date_visit']}\n"
+        f"Оценка еды: {user_data['food_rating']}\n"
+        f"Оценка чистоты: {user_data['cleanliness_rating']}\n"
+        f"Комментарий: {user_data['extra_comments']}"
+    )
+    await message.answer(review_text)
+    await state.update_data(review_given=True)
     await state.clear()
