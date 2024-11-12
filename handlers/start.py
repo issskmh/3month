@@ -49,7 +49,12 @@ async def start_handler(message: types.Message):
     )
     await message.answer(msg, reply_markup=kb)
 
-# Обработчик для кнопки "Оставить отзыв"
+@start_router.callback_query(F.data == "about")
+async def send_about_info(callback_query: types.CallbackQuery):
+    await callback_query.answer()
+    await callback_query.message.answer("Мы - команда, которая создала этого бота для помощи в ресторанах!")
+
+
 @start_router.callback_query(F.data == "review")
 async def review_callback(callback_query: CallbackQuery, state: FSMContext):
     user_id = callback_query.from_user.id
@@ -58,5 +63,5 @@ async def review_callback(callback_query: CallbackQuery, state: FSMContext):
         await state.finish()
     else:
         await callback_query.message.answer("Здравствуйте! Давайте начнем оставлять отзыв. Как вас зовут?")
-        await state.set_state(RestourantReview.name)  # Устанавливаем состояние
-    await callback_query.answer()  # Закрытие callback'а, чтобы кнопка не оставалась подсвеченной
+        await state.set_state(RestourantReview.name)
+    await callback_query.answer()

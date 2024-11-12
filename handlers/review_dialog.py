@@ -2,8 +2,10 @@ from aiogram import types, Router, F
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 from aiogram.fsm.state import State, StatesGroup
+from datetime import datetime, timedelta
 
 review_router = Router()
+
 
 class RestourantReview(StatesGroup):
     name = State()
@@ -14,10 +16,12 @@ class RestourantReview(StatesGroup):
     extra_comments = State()
     finish = State()
 
+
 @review_router.callback_query(F.data == "review")
 async def start_review(callback_query: CallbackQuery, state: FSMContext):
     await state.set_state(RestourantReview.name)
     await callback_query.message.answer("Как вас зовут?")
+
 
 @review_router.message(RestourantReview.name)
 async def process_name(message: types.Message, state: FSMContext):
@@ -25,17 +29,35 @@ async def process_name(message: types.Message, state: FSMContext):
     await state.set_state(RestourantReview.user_contact)
     await message.answer("Введите ваш номер телефона или инстаграм:")
 
+
 @review_router.message(RestourantReview.user_contact)
 async def process_user_contact(message: types.Message, state: FSMContext):
     await state.update_data(user_contact=message.text)
     await state.set_state(RestourantReview.date_visit)
     await message.answer("Введите дату вашего визита (например, 2024-11-11):")
 
+
 @review_router.message(RestourantReview.date_visit)
 async def process_date_visit(message: types.Message, state: FSMContext):
-    await state.update_data(date_visit=message.text)
-    await state.set_state(RestourantReview.food_rating)
-    await message.answer("Введите оценку еды (1 - очень плохо, 5 - замечательно):")
+    try:
+        # Проверка на корректность формата даты
+        date_visit = datetime.strptime(message.text, "%Y-%m-%d").date()
+
+        # Текущая дата
+        today = datetime.today().date()
+
+        # Ограничение: дата не должна быть в будущем и не должна быть старше 5 лет
+        if date_visit > today:
+            await message.answer("Дата визита не может быть в будущем. Пожалуйста, введите корректную дату.")
+        elif date_visit < today - timedelta(days=5 * 365):
+            await message.answer("Дата визита не может быть старше 5 лет. Пожалуйста, введите актуальную дату.")
+        else:
+            await state.update_data(date_visit=str(date_visit))
+            await state.set_state(RestourantReview.food_rating)
+            await message.answer("Введите оценку еды (1 - очень плохо, 5 - замечательно):")
+    except ValueError:
+        await message.answer("Пожалуйста, введите дату в формате ГГГГ-ММ-ДД, например, 2024-11-11.")
+
 
 @review_router.message(RestourantReview.food_rating)
 async def process_food_rating(message: types.Message, state: FSMContext):
@@ -62,15 +84,14 @@ async def process_extra_comments(message: types.Message, state: FSMContext):
     await state.update_data(extra_comments=message.text)
     await state.set_state(RestourantReview.finish)
 
-
     user_data = await state.get_data()
     review_text = (
         f"Спасибо за ваш отзыв!\n\n"
         f"Имя: {user_data['name']}\n"
         f"Контакт: {user_data['user_contact']}\n"
         f"Дата визита: {user_data['date_visit']}\n"
-        f"Оценка еды: {user_data['food_rating']}\n"
-        f"Оценка чистоты: {user_data['cleanliness_rating']}\n"
+        f"Оценка еды: {user_data['food_rating']}/5\n"
+        f"Оценка чистоты: {user_data['cleanliness_rating']}/5\n"
         f"Комментарий: {user_data['extra_comments']}"
     )
     await message.answer(review_text)
