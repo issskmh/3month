@@ -1,8 +1,9 @@
 from aiogram import types, Router, F
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.state import State, StatesGroup
 from datetime import datetime, timedelta
+from functools import wraps
 
 review_router = Router()
 
@@ -15,6 +16,31 @@ class RestourantReview(StatesGroup):
     cleanliness_rating = State()
     extra_comments = State()
     finish = State()
+
+
+def require_state_buttons(state: State, button_generator=None):
+    def decorator(handler):
+        @wraps(handler)
+        async def wrapper(message: types.Message, state: FSMContext, *args, **kwargs):
+            current_state = await state.get_state()
+            if current_state != state.state:
+                await message.answer("Пожалуйста, завершите текущий шаг.")
+                return
+
+            if button_generator:
+                await message.answer("Выберите значение:", reply_markup=button_generator())
+            else:
+                await handler(message, state, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+def rating_keyboard():
+    return InlineKeyboardMarkup(row_width=5).add(
+        *[InlineKeyboardButton(text=str(i), callback_data=f"rate_{i}") for i in range(1, 6)]
+    )
 
 
 @review_router.callback_query(F.data == "review")
@@ -40,13 +66,9 @@ async def process_user_contact(message: types.Message, state: FSMContext):
 @review_router.message(RestourantReview.date_visit)
 async def process_date_visit(message: types.Message, state: FSMContext):
     try:
-        # Проверка на корректность формата даты
         date_visit = datetime.strptime(message.text, "%Y-%m-%d").date()
-
-        # Текущая дата
         today = datetime.today().date()
 
-        # Ограничение: дата не должна быть в будущем и не должна быть старше 5 лет
         if date_visit > today:
             await message.answer("Дата визита не может быть в будущем. Пожалуйста, введите корректную дату.")
         elif date_visit < today - timedelta(days=5 * 365):
@@ -54,22 +76,26 @@ async def process_date_visit(message: types.Message, state: FSMContext):
         else:
             await state.update_data(date_visit=str(date_visit))
             await state.set_state(RestourantReview.food_rating)
-            await message.answer("Введите оценку еды (1 - очень плохо, 5 - замечательно):")
+            await message.answer("Введите оценку еды (1 - очень плохо, 5 - замечательно):",
+                                 reply_markup=rating_keyboard())
     except ValueError:
         await message.answer("Пожалуйста, введите дату в формате ГГГГ-ММ-ДД, например, 2024-11-11.")
 
 
 @review_router.message(RestourantReview.food_rating)
+@require_state_buttons(RestourantReview.food_rating, rating_keyboard)
 async def process_food_rating(message: types.Message, state: FSMContext):
     if message.text.isdigit() and 1 <= int(message.text) <= 5:
         await state.update_data(food_rating=int(message.text))
         await state.set_state(RestourantReview.cleanliness_rating)
-        await message.answer("Введите оценку чистоты (1 - очень плохо, 5 - замечательно):")
+        await message.answer("Введите оценку чистоты (1 - очень плохо, 5 - замечательно):",
+                             reply_markup=rating_keyboard())
     else:
         await message.answer("Пожалуйста, введите число от 1 до 5 для оценки еды.")
 
 
 @review_router.message(RestourantReview.cleanliness_rating)
+@require_state_buttons(RestourantReview.cleanliness_rating, rating_keyboard)
 async def process_cleanliness_rating(message: types.Message, state: FSMContext):
     if message.text.isdigit() and 1 <= int(message.text) <= 5:
         await state.update_data(cleanliness_rating=int(message.text))
