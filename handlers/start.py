@@ -1,33 +1,19 @@
 from aiogram import Router, types, F
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
-
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 reviewed_users = set()
-
-
-class RestourantReview(StatesGroup):
-    name = State()
-    phone_or_instagram = State()
-    visit_date = State()
-    food_rating = State()
-    cleanliness_rating = State()
-    extra_comments = State()
-
-
 start_router = Router()
 
 @start_router.message(Command("start"))
 async def start_handler(message: types.Message):
     name = message.from_user.first_name
-    msg = f"Привет, {name}"
+    msg = f"Привет, {name}! Добро пожаловать! Вы можете узнать больше о нас или оставить отзыв."
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Наш инстаргам",
+                    text="Наш Instagram",
                     url="https://tinyurl.com/7b8rm9ep"
                 ),
                 InlineKeyboardButton(
@@ -51,5 +37,4 @@ async def start_handler(message: types.Message):
 
 @start_router.callback_query(F.data == "about")
 async def send_about_info(callback_query: types.CallbackQuery):
-    await callback_query.answer()
-    await callback_query.message.answer("Мы - команда, которая создала этого бота для помощи в ресторанах!")
+    await callback_query.message.answer("Мы – команда, создавшая бота, который помогает ресторанам!")
