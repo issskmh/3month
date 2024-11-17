@@ -33,7 +33,7 @@ async def process_age(message: types.Message, state: FSMContext):
 async def process_gender(message: types.Message, state: FSMContext):
     await state.update_data(gender=message.text)
     await state.set_state(Opros.genre)
-    await message.answer("Какой у вас любимый литературный жанр")
+    await message.answer("Какой y вас любимый литературный жанр")
 
 @opros_router.message(Opros.genre)
 async def process_genre(message: types.Message, state: FSMContext):

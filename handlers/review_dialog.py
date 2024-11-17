@@ -3,6 +3,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.state import State, StatesGroup
 from datetime import datetime, timedelta
+from database.database import Database
 
 review_router = Router()
 
@@ -23,16 +24,24 @@ def rating_keyboard():
         one_time_keyboard=True
     )
 
+
+
+
 @review_router.callback_query(F.data == "review")
 async def start_review(callback_query: CallbackQuery, state: FSMContext):
+    db = Database("C:/Users/islam/PycharmProjects/month3projects/database.sqlite")
+    await state.update_data(db=db)
+
     await state.set_state(RestaurantReview.name)
     await callback_query.message.answer("Как вас зовут?")
+
+
 
 @review_router.message(RestaurantReview.name)
 async def process_name(message: types.Message, state: FSMContext):
     await state.update_data(name=message.text)
     await state.set_state(RestaurantReview.user_contact)
-    await message.answer("Введите ваш номер телефона или Instagram:")
+    await message.answer("Введите ваш номер телефона:")
 
 @review_router.message(RestaurantReview.user_contact)
 async def process_user_contact(message: types.Message, state: FSMContext):
@@ -86,14 +95,55 @@ async def process_extra_comments(message: types.Message, state: FSMContext):
     await state.update_data(extra_comments=message.text)
     user_data = await state.get_data()
     review_text = (
-        f"Спасибо за ваш отзыв!\n\n"
+        f"Проверьте ваш отзыв перед отправкой:\n\n"
         f"Имя: {user_data['name']}\n"
         f"Контакт: {user_data['user_contact']}\n"
         f"Дата визита: {user_data['date_visit']}\n"
         f"Оценка еды: {user_data['food_rating']}/5\n"
         f"Оценка чистоты: {user_data['cleanliness_rating']}/5\n"
-        f"Комментарий: {user_data['extra_comments']}"
+        f"Комментарий: {user_data['extra_comments']}\n\n"
+        f"Подтвердите отправку."
     )
-    await message.answer(review_text, reply_markup=types.ReplyKeyboardRemove())
-    await state.update_data(review_given=True)
-    await state.clear()
+    await message.answer(review_text, reply_markup=confirm_keyboard())
+    await state.set_state(RestaurantReview.finish)
+
+def confirm_keyboard():
+    buttons = [
+        [KeyboardButton(text="✅ Подтвердить"), KeyboardButton(text="❌ Отменить")]
+    ]
+    return ReplyKeyboardMarkup(
+        keyboard=buttons,
+        resize_keyboard=True,
+        one_time_keyboard=True
+    )
+
+@review_router.message(RestaurantReview.finish)
+async def finish_review(message: types.Message, state: FSMContext):
+    user_data = await state.get_data()
+    db = user_data.get('db')
+    if message.text == "✅ Подтвердить":
+        try:
+            db.execute(
+                """
+                INSERT INTO reviews (user_id, name, contact_info, visit_date, food_rating, cleanliness_rating, extra_comments)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    message.from_user.id,
+                    user_data['name'],
+                    user_data['user_contact'],
+                    user_data['date_visit'],
+                    user_data['food_rating'],
+                    user_data['cleanliness_rating'],
+                    user_data['extra_comments']
+                )
+            )
+            await message.answer("Спасибо за ваш отзыв!", reply_markup=types.ReplyKeyboardRemove())
+        except Exception as e:
+            await message.answer(f"Произошла ошибка при сохранении отзыва: {e}")
+        await state.clear()
+    elif message.text == "❌ Отменить":
+        await message.answer("Отзыв отменен.", reply_markup=types.ReplyKeyboardRemove())
+        await state.clear()
+    else:
+        await message.answer("Пожалуйста, используйте кнопки для подтверждения или отмены.")
