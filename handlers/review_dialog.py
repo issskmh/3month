@@ -147,3 +147,5 @@ async def finish_review(message: types.Message, state: FSMContext):
         await state.clear()
     else:
         await message.answer("Пожалуйста, используйте кнопки для подтверждения или отмены.")
+
+        print ("Вас приветсвует команда создавшая этого бота для работы с ним вы можете нажать на вспомогательные кнопки или ")

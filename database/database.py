@@ -22,6 +22,16 @@ class Database:
             )
             """
         )
+        self.cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS dishes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                price REAL
+            )
+            """
+        )
         self.connection.commit()
 
     def execute(self, query: str, params: tuple = ()):

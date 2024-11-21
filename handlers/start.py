@@ -8,7 +8,7 @@ start_router = Router()
 @start_router.message(Command("start"))
 async def start_handler(message: types.Message):
     name = message.from_user.first_name
-    msg = f"Привет, {name}! Добро пожаловать! Вы можете узнать больше о нас или оставить отзыв."
+    msg = f"Привет, {name}! Добро пожаловать! Вы можете узнать больше о нас или оставить отзыв, для добавления блюда введите /add_dish."
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
