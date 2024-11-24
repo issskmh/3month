@@ -6,6 +6,7 @@ from handlers.opros import opros_router
 from handlers.review_dialog import review_router
 from config import dp, bot, database
 from handlers.admin_dishes import admin_dishes_router
+from handlers.user_dishes import user_dishes_router
 
 
 
@@ -21,6 +22,7 @@ async def main():
     dp.include_router(opros_router)
     dp.include_router(review_router)
     dp.include_router(admin_dishes_router)
+    dp.include_router(user_dishes_router)
     dp.startup.register(on_startup)
     await dp.start_polling(bot)
 

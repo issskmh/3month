@@ -5,6 +5,7 @@ from aiogram.filters import Command
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from config import database
 
+
 admin_dishes_router = Router()
 
 

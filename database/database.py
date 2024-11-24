@@ -38,6 +38,11 @@ class Database:
         self.cursor.execute(query, params)
         self.connection.commit()
 
+    def fetch(self, query: str, params: tuple = ()):
+        """Получает данные из базы данных."""
+        self.cursor.execute(query, params)
+        return self.cursor.fetchall()
+
     def close(self):
         self.cursor.close()
         self.connection.close()
